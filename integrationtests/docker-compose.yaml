@@ -1,0 +1,56 @@
+version: '3'
+services:
+  blockchain-task-mockserver:
+    image: mockserver/mockserver:mockserver-5.9.0
+    container_name: blockchain-task-mockserver
+    environment:
+      - LOG_LEVEL=INFO
+    ports:
+      - "1099:1080"
+  blockchain-task-db:
+    image: postgres:12.3-alpine
+    container_name: blockchain-task-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=blockchain-task
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  blockchain-task:
+    image: deployment
+    container_name: blockchain-task
+    command: "--project=local"
+    restart: on-failure
+    healthcheck:
+      disable: true
+    depends_on:
+      - blockchain-task-db
+      - blockchain-task-mockserver
+    volumes:
+    - ./etc/secrets:/opt/etc/secrets
+    environment:
+    - DB_HOST=blockchain-task-db
+    - DB_PORT=5432
+    - DB_NAME=blockchain-task
+    - DB_USERNAME=postgres
+    - DB_PASSWORD=password
+    ports:
+    - "2800:2800"
+  blockchain-task-zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: blockchain-task-zookeeper
+    ports:
+      - "2181:2181"
+  blockchain-task-kafka:
+    image: wurstmeister/kafka
+    container_name: blockchain-task-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: localhost
+      KAFKA_ZOOKEEPER_CONNECT: blockchain-task-zookeeper:2181
